@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการสต็อกเสื้อผ้า (Clothing Inventory Management System)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font - Kanit -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SheetJS (XLSX) Library for Exporting Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- SweetAlert2 CDN for modern confirmation dialogs -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Kanit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .table-responsive::-webkit-scrollbar {
+            height: 6px;
+        }
+        .table-responsive::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- ==================== SCREEN 1: FOLDER MANAGEMENT ==================== -->
+    <div id="folderScreen" class="flex-grow flex flex-col">
+        <!-- Folder Header -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-md flex-shrink-0">
+                        <i class="fa-solid fa-folder-tree text-lg sm:text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xs sm:text-lg font-bold text-slate-800 leading-tight">ระบบจัดการโฟลเดอร์งาน</h1>
+                        <p class="text-[10px] sm:text-xs text-slate-500">ซิงก์ข้อมูลอัตโนมัติ (Auto-Refresh)</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <div id="cloudStatusBadge" class="flex items-center space-x-1.5 bg-emerald-50 text-emerald-700 text-[10px] sm:text-xs px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg font-medium border border-emerald-200">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 animate-pulse"></span>
+                        <span class="truncate">ซิงก์อัตโนมัติเปิดอยู่</span>
+                    </div>
+
+                    <button onclick="openFolderModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 py-2 rounded-xl font-medium text-xs sm:text-sm transition-all flex items-center space-x-1.5 shadow-sm active:scale-95">
+                        <i class="fa-solid fa-folder-plus text-sm"></i>
+                        <span class="hidden sm:inline">สร้างโฟลเดอร์ใหม่</span>
+                        <span class="inline sm:hidden">สร้าง</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Folder Main Content -->
+        <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 flex-grow w-full space-y-4 sm:space-y-6">
+            <!-- Search Bar -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-xl border border-slate-200/80 shadow-sm">
+                <div>
+                    <h2 class="text-sm sm:text-base font-bold text-slate-800">รายการโฟลเดอร์งานทั้งหมด</h2>
+                    <p class="text-[11px] sm:text-xs text-slate-500">แยกสต็อกและประวัติการเข้า-ออกแต่ละโครงการ</p>
+                </div>
+                <div class="relative w-full sm:min-w-[260px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="folderSearchInput" oninput="renderFolders()" placeholder="ค้นหาชื่อ หรือประเภทชุด..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <!-- Folders Grid -->
+            <div id="foldersGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <!-- Dynamic Folder Cards Inserted Here -->
+            </div>
+
+            <!-- Folders Empty State -->
+            <div id="foldersEmptyState" class="hidden bg-white rounded-2xl border border-slate-200 p-8 sm:p-12 text-center max-w-lg mx-auto my-8 shadow-sm">
+                <div class="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl sm:text-3xl">
+                    <i class="fa-solid fa-folder-open"></i>
+                </div>
+                <h3 class="text-base sm:text-lg font-bold text-slate-800 mb-1">ยังไม่มีโฟลเดอร์งาน</h3>
+                <p class="text-xs sm:text-sm text-slate-500 mb-6">สร้างโฟลเดอร์ใหม่เพื่อเริ่มจัดเก็บและบันทึกประวัติสต็อกเสื้อผ้า</p>
+                <button onclick="openFolderModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all shadow-md inline-flex items-center space-x-2">
+                    <i class="fa-solid fa-folder-plus"></i>
+                    <span>สร้างโฟลเดอร์แรกของคุณ</span>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== SCREEN 2: INVENTORY LOG IN FOLDER ==================== -->
+    <div id="inventoryScreen" class="flex-grow flex flex-col hidden">
+        <!-- Header / Navbar with Folder Navigation -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+                <div class="flex items-center space-x-2 truncate">
+                    <button onclick="exitFolder()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 sm:px-3 py-2 rounded-xl font-medium text-xs sm:text-sm transition-all flex items-center space-x-1 flex-shrink-0" title="เปลี่ยนโฟลเดอร์">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span class="hidden sm:inline">เปลี่ยนโฟลเดอร์</span>
+                    </button>
+                    <div class="h-5 w-px bg-slate-200 flex-shrink-0"></div>
+                    <div class="flex items-center space-x-1.5 truncate">
+                        <i class="fa-solid fa-folder text-amber-500 text-base flex-shrink-0"></i>
+                        <div class="truncate">
+                            <h1 id="activeFolderName" class="text-xs sm:text-base font-bold text-slate-800 leading-tight truncate">ชื่อโฟลเดอร์งาน</h1>
+                            <p class="text-[10px] text-slate-500 truncate">สต็อกเสื้อผ้า</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+                    <button onclick="exportCombinedExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 sm:px-4 py-2 rounded-xl font-medium text-xs sm:text-sm transition-all flex items-center space-x-1.5 shadow-sm active:scale-95" title="ส่งออก Excel">
+                        <i class="fa-solid fa-file-excel text-sm"></i>
+                        <span class="hidden sm:inline">Excel</span>
+                    </button>
+
+                    <button onclick="openTransactionModal('IN')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 sm:px-4 py-2 rounded-xl font-medium text-xs sm:text-sm transition-all flex items-center space-x-1.5 shadow-sm active:scale-95">
+                        <i class="fa-solid fa-right-to-bracket text-sm"></i>
+                        <span>รับเข้า/เบิก</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Inventory Content Container -->
+        <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex-grow w-full space-y-4 sm:space-y-6">
+
+            <!-- Real-time Size Summary Dashboard -->
+            <div class="bg-white p-3 sm:p-4 rounded-xl border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-layer-group text-indigo-600 text-xs sm:text-sm"></i>
+                        <h2 class="text-xs sm:text-sm font-bold text-slate-800">ยอดคงเหลือแยกตามไซส์</h2>
+                    </div>
+                    <span class="text-[10px] text-slate-400">Responsive Grid</span>
+                </div>
+                <div id="sizeDashboardContainer" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-11 gap-1.5 sm:gap-2">
+                    <!-- Size cards dynamically generated here -->
+                </div>
+            </div>
+
+            <!-- View Navigation Tabs & Filters -->
+            <div class="bg-white p-3 sm:p-4 rounded-xl border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div class="flex space-x-1 bg-slate-100 p-1 rounded-xl">
+                        <button id="tabLogsBtn" onclick="switchTab('logs')" class="flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all bg-white text-indigo-600 shadow-sm">
+                            <i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติ
+                        </button>
+                        <button id="tabSummaryBtn" onclick="switchTab('summary')" class="flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                            <i class="fa-solid fa-boxes-stacked mr-1"></i> สรุปสต็อก
+                        </button>
+                    </div>
+
+                    <div class="relative w-full sm:min-w-[240px]">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" id="searchInput" oninput="renderCurrentView()" placeholder="ค้นหาผู้เบิก, หมายเหตุ..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <select id="filterSize" onchange="renderCurrentView()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">ทุกไซส์</option>
+                        <option value="XS">XS</option>
+                        <option value="S">S</option>
+                        <option value="M">M</option>
+                        <option value="L">L</option>
+                        <option value="XL">XL</option>
+                        <option value="2XL">2XL</option>
+                        <option value="3XL">3XL</option>
+                        <option value="4XL">4XL</option>
+                        <option value="5XL">5XL</option>
+                        <option value="6XL">6XL</option>
+                        <option value="7XL">7XL</option>
+                    </select>
+
+                    <select id="filterType" onchange="renderCurrentView()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">ทุกประเภท</option>
+                        <option value="IN">รับเข้า (+)</option>
+                        <option value="OUT">เบิกออก (-)</option>
+                    </select>
+
+                    <button onclick="resetFilters()" class="text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all" title="ล้างตัวกรอง">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> ล้างกรอง
+                    </button>
+                </div>
+            </div>
+
+            <!-- View 1: Stock Transactions Log Table -->
+            <div id="logsView" class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div class="table-responsive overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                <th class="py-3 px-4">วันที่-เวลา</th>
+                                <th class="py-3 px-4 text-center">ประเภท</th>
+                                <th class="py-3 px-4">ชื่องาน</th>
+                                <th class="py-3 px-4">ประเภทชุด</th>
+                                <th class="py-3 px-4">คุณสมบัติชุด</th>
+                                <th class="py-3 px-4 text-center">ไซส์</th>
+                                <th class="py-3 px-4 text-center">จำนวน</th>
+                                <th class="py-3 px-4 text-center bg-slate-100/70">ยอดก่อนทำ</th>
+                                <th class="py-3 px-4 text-center bg-indigo-50/50 text-indigo-900">ยอดคงเหลือ</th>
+                                <th class="py-3 px-4">ผู้ทำรายการ / หมายเหตุ</th>
+                                <th class="py-3 px-4 text-center">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm">
+                            <!-- Data rows dynamically inserted -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="logsEmptyState" class="hidden py-12 text-center">
+                    <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <h3 class="text-sm sm:text-base font-semibold text-slate-700">ไม่พบประวัติรายการในโฟลเดอร์นี้</h3>
+                    <p class="text-xs text-slate-400 mt-1">กดปุ่ม "รับเข้า/เบิก" เพื่อเริ่มเพิ่มประวัติใหม่</p>
+                </div>
+            </div>
+
+            <!-- View 2: Current Inventory Summary Table -->
+            <div id="summaryView" class="hidden bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div class="table-responsive overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[600px]">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                <th class="py-3 px-4">ชื่องาน (โฟลเดอร์)</th>
+                                <th class="py-3 px-4">ประเภทชุด</th>
+                                <th class="py-3 px-4">คุณสมบัติชุด</th>
+                                <th class="py-3 px-4 text-center">ไซส์</th>
+                                <th class="py-3 px-4 text-center">ยอดคงเหลือรวม</th>
+                                <th class="py-3 px-4 text-center">ทำรายการด่วน</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm">
+                            <!-- Summary rows dynamically inserted -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="summaryEmptyState" class="hidden py-12 text-center">
+                    <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                        <i class="fa-solid fa-box-open"></i>
+                    </div>
+                    <h3 class="text-sm sm:text-base font-semibold text-slate-700">ไม่พบข้อมูลสต็อกคงเหลือในโฟลเดอร์นี้</h3>
+                    <p class="text-xs text-slate-400 mt-1">รายการสต็อกจะถูกคำนวณสะสมตามประวัติการรับเข้าและเบิกออก</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-3 text-center text-[11px] sm:text-xs text-slate-400">
+        <p>ระบบจัดการสต็อกเสื้อผ้า &copy; 2026 - Auto-Refresh Sync Enabled</p>
+    </footer>
+
+    <!-- Folder Add/Edit Modal -->
+    <div id="folderModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-3 sm:p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md overflow-hidden transform transition-all my-auto">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 id="folderModalTitle" class="text-base sm:text-lg font-bold text-slate-800">สร้างโฟลเดอร์งานใหม่</h3>
+                <button onclick="closeFolderModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 transition-all">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form id="folderForm" onsubmit="handleFolderFormSubmit(event)" class="p-5 space-y-3.5">
+                <input type="hidden" id="folderId">
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-700">ชื่อโฟลเดอร์งาน <span class="text-rose-500">*</span></label>
+                    <input type="text" id="folderNameInput" required placeholder="เช่น PTT EP, งานแฟชั่นซัมเมอร์ 2026" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-700">ประเภทชุด (ประจำโฟลเดอร์) <span class="text-rose-500">*</span></label>
+                    <input type="text" id="folderCategoryInput" required placeholder="เช่น ชุดหมี, ชุดเดรสยาว, เสื้อเชิ้ต" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-700">คุณสมบัติชุด (ประจำโฟลเดอร์) <span class="text-rose-500">*</span></label>
+                    <input type="text" id="folderSkuInput" required placeholder="เช่น กันไฟ, ซิปหลัง, Cotton 100%" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-700">รายละเอียดโฟลเดอร์ (ถ้ามี)</label>
+                    <textarea id="folderDescInput" rows="2" placeholder="รายละเอียดหรือหมายเหตุย่อ..." class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
+                </div>
+                <div class="pt-2 flex items-center justify-end space-x-2.5">
+                    <button type="button" onclick="closeFolderModal()" class="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs sm:text-sm font-medium text-slate-600 transition-all">ยกเลิก</button>
+                    <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-medium transition-all shadow-sm">บันทึกโฟลเดอร์</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Transaction Modal -->
+    <div id="transactionModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-3 sm:p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-lg overflow-hidden transform transition-all my-auto">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 id="modalTitle" class="text-base sm:text-lg font-bold text-slate-800">บันทึกรายการ เข้า-ออก สต็อก</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 transition-all">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form id="transactionForm" onsubmit="handleFormSubmit(event)" class="p-5 space-y-3.5">
+                <input type="hidden" id="transId">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">ประเภทรายการ <span class="text-rose-500">*</span></label>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <label class="flex items-center justify-center p-2.5 sm:p-3 border-2 rounded-xl cursor-pointer transition-all border-emerald-500 bg-emerald-50 text-emerald-700 font-medium text-xs sm:text-sm" id="labelTypeIn">
+                            <input type="radio" name="transType" value="IN" checked onchange="onTypeChange()" class="sr-only">
+                            <i class="fa-solid fa-arrow-down-left-and-arrow-up-right-to-center rotate-45 mr-1.5"></i>
+                            <span>📥 รับเข้า (+)</span>
+                        </label>
+                        <label class="flex items-center justify-center p-2.5 sm:p-3 border-2 border-slate-200 rounded-xl cursor-pointer transition-all text-slate-600 font-medium text-xs sm:text-sm" id="labelTypeOut">
+                            <input type="radio" name="transType" value="OUT" onchange="onTypeChange()" class="sr-only">
+                            <i class="fa-solid fa-arrow-up-right-from-square mr-1.5"></i>
+                            <span>📤 เบิกออก (-)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-medium text-slate-700">ชื่องาน (โฟลเดอร์) <span class="text-rose-500">*</span></label>
+                        <input type="text" id="itemName" required readonly class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-600 cursor-not-allowed font-medium focus:outline-none">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-medium text-slate-700">ประเภทชุด <span class="text-rose-500">*</span></label>
+                        <input type="text" id="itemCategory" required readonly class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-600 cursor-not-allowed font-medium focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-medium text-slate-700">คุณสมบัติชุด</label>
+                    <input type="text" id="itemSku" readonly class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-600 cursor-not-allowed focus:outline-none">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-medium text-slate-700">ไซส์ (Size) <span class="text-rose-500">*</span></label>
+                    <select id="itemSize" required onchange="updateStockAvailabilityIndicator()" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="XS">XS</option>
+                        <option value="S">S</option>
+                        <option value="M">M</option>
+                        <option value="L">L</option>
+                        <option value="XL">XL</option>
+                        <option value="2XL">2XL</option>
+                        <option value="3XL">3XL</option>
+                        <option value="4XL">4XL</option>
+                        <option value="5XL">5XL</option>
+                        <option value="6XL">6XL</option>
+                        <option value="7XL">7XL</option>
+                    </select>
+                </div>
+
+                <div id="stockInfoBadge" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-2.5 flex items-center justify-between text-xs text-indigo-900 font-medium">
+                    <span><i class="fa-solid fa-boxes-stacked text-indigo-600 mr-1"></i> คงเหลือไซส์นี้:</span>
+                    <span id="stockInfoValue" class="text-sm font-bold text-indigo-700">0 ชิ้น</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-medium text-slate-700">จำนวนชิ้น <span class="text-rose-500">*</span></label>
+                        <input type="number" id="itemQuantity" min="1" required placeholder="1" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-medium text-slate-700">ผู้ทำรายการ / ผู้เบิก <span class="text-rose-500">*</span></label>
+                        <input type="text" id="itemOperator" required placeholder="ชื่อผู้ทำรายการ" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-medium text-slate-700">หมายเหตุ / รหัสใบงาน</label>
+                    <textarea id="itemNote" rows="2" placeholder="เลขใบงาน, หมายเหตุ..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2.5">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs sm:text-sm font-medium text-slate-600 transition-all">ยกเลิก</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-medium transition-all shadow-sm">บันทึกรายการ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-2.5 rounded-xl shadow-lg border border-slate-700 flex items-center space-x-2.5 transform translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none text-xs sm:text-sm">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toastMessage" class="font-medium">ทำรายการสำเร็จ</span>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbxCzTnemmrZg9-rnVOzYJxH0xkbvpiLeHmy_CYo_Gklz0yhKPUa-l0QoY8FUUVNv2wzpw/exec";
+        
+        let folders = [];
+        let activeFolderId = null;
+        let transactions = [];
+        let currentActiveTab = 'logs';
+        const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', '7XL'];
+
+        // ตัวแปรสำหรับระบบ Auto-Refresh เบื้องหลัง
+        let autoRefreshTimer = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadFromLocal();
+            fetchAllData();
+            startAutoRefresh(); // เริ่มระบบเช็กข้อมูลอัตโนมัติทุก 8 วินาที
+        });
+
+        // 🔄 ระบบดึงข้อมูลอัตโนมัติเบื้องหลัง (Auto-Refresh) ทุก 8 วินาที
+        function startAutoRefresh() {
+            if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+            autoRefreshTimer = setInterval(() => {
+                fetchBackgroundData();
+            }, 8000); 
+        }
+
+        async function fetchBackgroundData() {
+            try {
+                const response = await fetch(API_URL + '?t=' + Date.now());
+                const result = await response.json();
+                if (result.status === 'success' && result.folders) {
+                    const cloudFolders = result.folders || [];
+                    const cloudTx = result.transactions || [];
+                    
+                    cloudFolders.forEach(cf => {
+                        cf.transactions = cloudTx.filter(t => t.folder_id === cf.id);
+                    });
+
+                    // ตรวจสอบว่าข้อมูลใน Sheet มีการเปลี่ยนแปลงจากปัจจุบันหรือไม่
+                    const newDataString = JSON.stringify(cloudFolders);
+                    const oldDataString = localStorage.getItem('clothing_stock_folders_v27');
+
+                    if (newDataString !== oldDataString) {
+                        folders = cloudFolders;
+                        localStorage.setItem('clothing_stock_folders_v27', newDataString);
+                        
+                        // อัปเดตหน้าจอตามหน้าปัจจุบันที่ผู้ใช้อยู่ทันที (โดยไม่กระพริบหากไม่อยู่ในจุดที่แก้)
+                        if (activeFolderId) {
+                            const activeFolder = folders.find(f => f.id === activeFolderId);
+                            if (activeFolder) {
+                                transactions = activeFolder.transactions || [];
+                                renderCurrentView();
+                            } else {
+                                exitFolder();
+                            }
+                        } else {
+                            renderFolders();
+                        }
+                        showToast('ข้อมูลอัปเดตจาก Cloud อัตโนมัติแล้ว', 'success');
+                    }
+                }
+            } catch (error) {
+                console.error("Background sync error:", error);
+            }
+        }
+
+        function loadFromLocal() {
+            const stored = localStorage.getItem('clothing_stock_folders_v27');
+            if (stored) {
+                try {
+                    folders = JSON.parse(stored);
+                    renderFolders();
+                } catch (e) { folders = []; }
+            }
+        }
+
+        async function fetchAllData() {
+            const statusBadge = document.getElementById('cloudStatusBadge');
+            if (statusBadge) {
+                statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping flex-shrink-0"></span><span class="text-[10px] sm:text-xs truncate">กำลังโหลด...</span>`;
+            }
+
+            try {
+                const response = await fetch(API_URL + '?t=' + Date.now());
+                const result = await response.json();
+                if (result.status === 'success' && result.folders) {
+                    const cloudFolders = result.folders || [];
+                    const cloudTx = result.transactions || [];
+                    
+                    cloudFolders.forEach(cf => {
+                        cf.transactions = cloudTx.filter(t => t.folder_id === cf.id);
+                    });
+
+                    folders = cloudFolders;
+                    localStorage.setItem('clothing_stock_folders_v27', JSON.stringify(folders));
+                    renderFolders();
+
+                    if (activeFolderId) {
+                        const activeFolder = folders.find(f => f.id === activeFolderId);
+                        if (activeFolder) {
+                            transactions = activeFolder.transactions || [];
+                            renderCurrentView();
+                        } else {
+                            exitFolder();
+                        }
+                    }
+
+                    if (statusBadge) {
+                        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 animate-pulse"></span><span class="text-[10px] sm:text-xs truncate">ซิงก์อัตโนมัติเปิดอยู่</span>`;
+                    }
+                }
+            } catch (error) {
+                console.error("Fetch data error:", error);
+                if (statusBadge) {
+                    statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0"></span><span class="text-[10px] sm:text-xs truncate">ออฟไลน์</span>`;
+                }
+            }
+        }
+
+        function syncToCloudInstant(actionPayload) {
+            localStorage.setItem('clothing_stock_folders_v27', JSON.stringify(folders));
+
+            const queryString = Object.keys(actionPayload).map(key => encodeURIComponent(key) + '=' + encodeURIComponent(actionPayload[key])).join('&');
+            const beaconUrl = `${API_URL}?${queryString}&action=${encodeURIComponent(actionPayload.action)}&t=${Date.now()}`;
+            
+            const img = new Image();
+            img.src = beaconUrl;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMessage.textContent = message;
+            if (type === 'warning' || type === 'error') {
+                toastIcon.className = 'fa-solid fa-triangle-exclamation text-amber-400 text-base';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-base';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        // ==================== FOLDER MANAGEMENT ====================
+        function renderFolders() {
+            const grid = document.getElementById('foldersGrid');
+            const emptyState = document.getElementById('foldersEmptyState');
+            const search = (document.getElementById('folderSearchInput').value || '').trim().toLowerCase();
+
+            const filteredFolders = folders.filter(f => 
+                f.name.toLowerCase().includes(search) || 
+                (f.category && f.category.toLowerCase().includes(search)) ||
+                (f.sku && f.sku.toLowerCase().includes(search)) ||
+                (f.description && f.description.toLowerCase().includes(search))
+            );
+
+            if (filteredFolders.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            grid.innerHTML = filteredFolders.map(folder => {
+                let totalIn = 0;
+                let totalOut = 0;
+                (folder.transactions || []).forEach(t => {
+                    const q = parseInt(t.quantity, 10) || 0;
+                    if (t.type === 'IN') totalIn += q;
+                    if (t.type === 'OUT') totalOut += q;
+                });
+                const totalStock = totalIn - totalOut;
+                const logCount = (folder.transactions || []).length;
+
+                return `
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all p-4 sm:p-5 flex flex-col justify-between group">
+                        <div class="space-y-3">
+                            <div class="flex items-start justify-between">
+                                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center text-xl sm:text-2xl group-hover:scale-105 transition-transform flex-shrink-0">
+                                    <i class="fa-solid fa-folder"></i>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <button onclick="openFolderModal('${folder.id}')" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="แก้ไข">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button onclick="deleteFolder('${folder.id}')" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="ลบ">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-base sm:text-lg group-hover:text-indigo-600 transition-colors leading-snug truncate mb-1.5">${escapeHtml(folder.name)}</h3>
+                                <div class="flex flex-wrap gap-1 mb-2">
+                                    <span class="inline-flex items-center bg-indigo-50 text-indigo-700 font-medium px-2 py-0.5 rounded-md text-[11px] border border-indigo-100"><i class="fa-solid fa-shirt mr-1 text-[9px]"></i>${escapeHtml(folder.category)}</span>
+                                    <span class="inline-flex items-center bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-[11px] border border-slate-200"><i class="fa-solid fa-tag mr-1 text-[9px]"></i>${escapeHtml(folder.sku)}</span>
+                                </div>
+                                <p class="text-xs text-slate-500 line-clamp-2">${folder.description ? escapeHtml(folder.description) : 'ไม่มีรายละเอียด'}</p>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 mt-4 border-t border-slate-100 space-y-3">
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                    <span class="text-slate-400 block mb-0.5 text-[10px]">คงเหลือรวม</span>
+                                    <span class="text-xs sm:text-sm font-bold text-indigo-600">${totalStock.toLocaleString()} ชิ้น</span>
+                                </div>
+                                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                    <span class="text-slate-400 block mb-0.5 text-[10px]">รายการ</span>
+                                    <span class="text-xs sm:text-sm font-bold text-slate-700">${logCount.toLocaleString()} รายการ</span>
+                                </div>
+                            </div>
+
+                            <button onclick="openFolder('${folder.id}')" class="w-full bg-slate-900 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all shadow-sm flex items-center justify-center space-x-2">
+                                <span>เข้าสู่สต็อก</span>
+                                <i class="fa-solid fa-arrow-right text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openFolderModal(id = null) {
+            const modal = document.getElementById('folderModal');
+            const form = document.getElementById('folderForm');
+            const title = document.getElementById('folderModalTitle');
+
+            form.reset();
+            document.getElementById('folderId').value = '';
+
+            if (id) {
+                const folder = folders.find(f => f.id === id);
+                if (folder) {
+                    title.textContent = 'แก้ไขโฟลเดอร์งาน';
+                    document.getElementById('folderId').value = folder.id;
+                    document.getElementById('folderNameInput').value = folder.name;
+                    document.getElementById('folderCategoryInput').value = folder.category || '';
+                    document.getElementById('folderSkuInput').value = folder.sku || '';
+                    document.getElementById('folderDescInput').value = folder.description || '';
+                }
+            } else {
+                title.textContent = 'สร้างโฟลเดอร์งานใหม่';
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeFolderModal() {
+            document.getElementById('folderModal').classList.add('hidden');
+        }
+
+        function handleFolderFormSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('folderId').value;
+            const name = document.getElementById('folderNameInput').value.trim();
+            const category = document.getElementById('folderCategoryInput').value.trim();
+            const sku = document.getElementById('folderSkuInput').value.trim();
+            const description = document.getElementById('folderDescInput').value.trim();
+
+            if (!name || !category || !sku) {
+                showToast('กรุณากรอกข้อมูลให้ครบทุกช่องที่จำเป็น', 'warning');
+                return;
+            }
+
+            const now = new Date();
+            const updatedAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            let folderObj;
+            if (id) {
+                folderObj = folders.find(f => f.id === id);
+                if (folderObj) {
+                    folderObj.name = name;
+                    folderObj.category = category;
+                    folderObj.sku = sku;
+                    folderObj.description = description;
+                    folderObj.updatedAt = updatedAt;
+                }
+            } else {
+                folderObj = {
+                    id: 'folder-' + Date.now(),
+                    name,
+                    category,
+                    sku,
+                    description,
+                    updatedAt,
+                    transactions: []
+                };
+                folders.push(folderObj);
+            }
+
+            closeFolderModal();
+            renderFolders();
+            showToast(id ? 'อัปเดตโฟลเดอร์เรียบร้อย' : 'สร้างโฟลเดอร์สำเร็จ');
+
+            syncToCloudInstant({
+                action: 'saveFolder',
+                folder_id: folderObj.id,
+                folder_name: folderObj.name,
+                category: folderObj.category,
+                property: folderObj.sku,
+                description: folderObj.description,
+                updated_at: folderObj.updatedAt
+            });
+        }
+
+        function deleteFolder(id) {
+            const folder = folders.find(f => f.id === id);
+            if (!folder) return;
+
+            Swal.fire({
+                title: 'ยืนยันการลบโฟลเดอร์?',
+                html: `ต้องการลบโฟลเดอร์ <b>"${escapeHtml(folder.name)}"</b> ใช่หรือไม่?<br><span class="text-xs text-rose-500">ข้อมูลประวัติและสต็อกทั้งหมดในโฟลเดอร์นี้จะถูกลบ</span>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'ใช่, ลบ',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    folders = folders.filter(f => f.id !== id);
+                    renderFolders();
+                    showToast('ลบโฟลเดอร์เรียบร้อย');
+
+                    syncToCloudInstant({
+                        action: 'deleteFolder',
+                        folder_id: id
+                    });
+                }
+            });
+        }
+
+        function openFolder(id) {
+            const folder = folders.find(f => f.id === id);
+            if (!folder) return;
+
+            activeFolderId = id;
+            transactions = folder.transactions || [];
+
+            document.getElementById('activeFolderName').textContent = folder.name;
+            document.getElementById('folderScreen').classList.add('hidden');
+            document.getElementById('inventoryScreen').classList.remove('hidden');
+
+            renderCurrentView();
+        }
+
+        function exitFolder() {
+            activeFolderId = null;
+            transactions = [];
+            document.getElementById('inventoryScreen').classList.add('hidden');
+            document.getElementById('folderScreen').classList.remove('hidden');
+            renderFolders();
+        }
+
+        function switchTab(tab) {
+            currentActiveTab = tab;
+            const tabLogsBtn = document.getElementById('tabLogsBtn');
+            const tabSummaryBtn = document.getElementById('tabSummaryBtn');
+            const logsView = document.getElementById('logsView');
+            const summaryView = document.getElementById('summaryView');
+
+            if (tab === 'logs') {
+                tabLogsBtn.className = "flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all bg-white text-indigo-600 shadow-sm";
+                tabSummaryBtn.className = "flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900";
+                logsView.classList.remove('hidden');
+                summaryView.classList.add('hidden');
+            } else {
+                tabSummaryBtn.className = "flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all bg-white text-indigo-600 shadow-sm";
+                tabLogsBtn.className = "flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900";
+                summaryView.classList.remove('hidden');
+                logsView.classList.add('hidden');
+            }
+            renderCurrentView();
+        }
+
+        function onTypeChange() {
+            const transType = document.querySelector('input[name="transType"]:checked').value;
+            const labelIn = document.getElementById('labelTypeIn');
+            const labelOut = document.getElementById('labelTypeOut');
+
+            if (transType === 'IN') {
+                labelIn.className = "flex items-center justify-center p-2.5 sm:p-3 border-2 rounded-xl cursor-pointer transition-all border-emerald-500 bg-emerald-50 text-emerald-700 font-medium text-xs sm:text-sm";
+                labelOut.className = "flex items-center justify-center p-2.5 sm:p-3 border-2 border-slate-200 rounded-xl cursor-pointer transition-all text-slate-600 font-medium text-xs sm:text-sm";
+            } else {
+                labelOut.className = "flex items-center justify-center p-2.5 sm:p-3 border-2 rounded-xl cursor-pointer transition-all border-rose-500 bg-rose-50 text-rose-700 font-medium text-xs sm:text-sm";
+                labelIn.className = "flex items-center justify-center p-2.5 sm:p-3 border-2 border-slate-200 rounded-xl cursor-pointer transition-all text-slate-600 font-medium text-xs sm:text-sm";
+            }
+
+            updateStockAvailabilityIndicator();
+        }
+
+        function getStockRemainingForSize(size) {
+            let totalIn = 0;
+            let totalOut = 0;
+            transactions.forEach(t => {
+                if (t.size === size) {
+                    const q = parseInt(t.quantity, 10) || 0;
+                    if (t.type === 'IN') totalIn += q;
+                    if (t.type === 'OUT') totalOut += q;
+                }
+            });
+            return totalIn - totalOut;
+        }
+
+        function updateStockAvailabilityIndicator() {
+            const size = document.getElementById('itemSize').value;
+            const badge = document.getElementById('stockInfoBadge');
+            const valSpan = document.getElementById('stockInfoValue');
+
+            if (size) {
+                const stock = getStockRemainingForSize(size);
+                valSpan.textContent = `${stock.toLocaleString()} ชิ้น`;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function openTransactionModal(type = 'IN') {
+            const form = document.getElementById('transactionForm');
+            form.reset();
+            document.getElementById('transId').value = '';
+
+            if (activeFolderId) {
+                const currentFolder = folders.find(f => f.id === activeFolderId);
+                if (currentFolder) {
+                    document.getElementById('itemName').value = currentFolder.name || '';
+                    document.getElementById('itemCategory').value = currentFolder.category || '';
+                    document.getElementById('itemSku').value = currentFolder.sku || '';
+                }
+            }
+
+            const radios = document.getElementsByName('transType');
+            for (let radio of radios) {
+                if (radio.value === type) {
+                    radio.checked = true;
+                    break;
+                }
+            }
+            onTypeChange();
+            document.getElementById('modalTitle').textContent = type === 'IN' ? 'บันทึก รับเข้าสต็อก (+)' : 'บันทึก เบิกออกสต็อก (-)';
+            document.getElementById('transactionModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('transactionModal').classList.add('hidden');
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const transType = document.querySelector('input[name="transType"]:checked').value;
+            const name = document.getElementById('itemName').value.trim();
+            const category = document.getElementById('itemCategory').value.trim();
+            const sku = document.getElementById('itemSku').value.trim();
+            const size = document.getElementById('itemSize').value;
+            const quantity = parseInt(document.getElementById('itemQuantity').value, 10) || 0;
+            const operator = document.getElementById('itemOperator').value.trim();
+            const note = document.getElementById('itemNote').value.trim();
+
+            if (!operator) {
+                showToast('กรุณาระบุชื่อผู้ทำรายการ', 'warning');
+                return;
+            }
+
+            if (quantity <= 0) {
+                showToast('กรุณาระบุจำนวนให้มากกว่า 0', 'warning');
+                return;
+            }
+
+            const currentStock = getStockRemainingForSize(size);
+
+            if (transType === 'OUT' && currentStock < quantity) {
+                Swal.fire({
+                    title: 'ไม่สามารถเบิกออกได้',
+                    text: `ไซส์ ${size} มีสินค้าเพียง ${currentStock} ชิ้น ไม่เพียงพอ`,
+                    icon: 'error',
+                    confirmButtonColor: '#e11d48'
+                });
+                return;
+            }
+
+            const stockBefore = currentStock;
+            const stockAfter = transType === 'IN' ? currentStock + quantity : currentStock - quantity;
+
+            const now = new Date();
+            const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            const newTransaction = {
+                id: 'tx_' + Date.now(),
+                folder_id: activeFolderId,
+                timestamp,
+                type: transType,
+                name,
+                category,
+                sku,
+                size,
+                quantity,
+                operator,
+                note,
+                stockBefore,
+                stockAfter
+            };
+
+            transactions.unshift(newTransaction);
+            const folder = folders.find(f => f.id === activeFolderId);
+            if (folder) folder.transactions = transactions;
+
+            closeModal();
+            renderCurrentView();
+            showToast(transType === 'IN' ? 'บันทึกรับเข้าเรียบร้อย' : 'บันทึกเบิกออกเรียบร้อย');
+
+            syncToCloudInstant({
+                action: 'saveTransaction',
+                transaction_id: newTransaction.id,
+                folder_id: newTransaction.folder_id,
+                timestamp: newTransaction.timestamp,
+                type: newTransaction.type,
+                job_name: newTransaction.name,
+                category: newTransaction.category,
+                property: newTransaction.sku,
+                size: newTransaction.size,
+                qty: newTransaction.quantity,
+                stock_before: newTransaction.stockBefore,
+                stock_after: newTransaction.stockAfter,
+                operator: newTransaction.operator,
+                remark: newTransaction.note
+            });
+        }
+
+        function deleteTransaction(id) {
+            Swal.fire({
+                title: 'ยืนยันการลบรายการ?',
+                text: "การลบจะมีผลต่อการคำนวณยอดสต็อกคงเหลือ",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'ใช่, ลบ',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    transactions = transactions.filter(t => t.id !== id);
+                    const folder = folders.find(f => f.id === activeFolderId);
+                    if (folder) folder.transactions = transactions;
+
+                    renderCurrentView();
+                    showToast('ลบรายการเรียบร้อย');
+
+                    syncToCloudInstant({
+                        action: 'deleteTransaction',
+                        transaction_id: id
+                    });
+                }
+            });
+        }
+
+        function resetFilters() {
+            document.getElementById('filterSize').value = '';
+            document.getElementById('filterType').value = '';
+            document.getElementById('searchInput').value = '';
+            renderCurrentView();
+        }
+
+        function renderSizeDashboard() {
+            const container = document.getElementById('sizeDashboardContainer');
+            container.innerHTML = ALL_SIZES.map(size => {
+                const count = getStockRemainingForSize(size);
+                const isAvailable = count > 0;
+                
+                return `
+                    <div class="p-1.5 sm:p-2 rounded-xl border text-center transition-all ${isAvailable ? 'bg-indigo-50/60 border-indigo-200 text-indigo-900 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'}">
+                        <span class="block text-[9px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-0.5">${size}</span>
+                        <span class="text-xs sm:text-base font-bold ${isAvailable ? 'text-indigo-600' : 'text-slate-400'}">${count.toLocaleString()}</span>
+                        <span class="text-[8px] sm:text-[10px] text-slate-400 block">ชิ้น</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCurrentView() {
+            renderSizeDashboard();
+
+            if (currentActiveTab === 'logs') {
+                renderLogsTable();
+            } else {
+                renderSummaryTable();
+            }
+        }
+
+        function renderLogsTable() {
+            const tbody = document.getElementById('logsTableBody');
+            const emptyState = document.getElementById('logsEmptyState');
+
+            const filterSize = document.getElementById('filterSize').value;
+            const filterType = document.getElementById('filterType').value;
+            const search = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+
+            const filteredLogs = transactions.filter(t => {
+                const matchSize = !filterSize || t.size === filterSize;
+                const matchType = !filterType || t.type === filterType;
+                const matchSearch = !search || 
+                    (t.operator && t.operator.toLowerCase().includes(search)) ||
+                    (t.note && t.note.toLowerCase().includes(search)) ||
+                    (t.name && t.name.toLowerCase().includes(search));
+                return matchSize && matchType && matchSearch;
+            });
+
+            if (filteredLogs.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            tbody.innerHTML = filteredLogs.map(t => {
+                const isIN = t.type === 'IN';
+                const typeBadge = isIN 
+                    ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800"><i class="fa-solid fa-arrow-down-left-and-arrow-up-right-to-center rotate-45 mr-1 text-[9px]"></i> รับเข้า(+)` 
+                    : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800"><i class="fa-solid fa-arrow-up-right-from-square mr-1 text-[9px]"></i> เบิก(-)`;
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3 px-4 text-xs font-medium text-slate-500 whitespace-nowrap">${escapeHtml(t.timestamp)}</td>
+                        <td class="py-3 px-4 text-center whitespace-nowrap">${typeBadge}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-800 whitespace-nowrap">${escapeHtml(t.name)}</td>
+                        <td class="py-3 px-4 text-slate-600 whitespace-nowrap">${escapeHtml(t.category)}</td>
+                        <td class="py-3 px-4 text-slate-500 text-xs whitespace-nowrap">${escapeHtml(t.sku || '-')}</td>
+                        <td class="py-3 px-4 text-center font-bold text-indigo-600 whitespace-nowrap">${escapeHtml(t.size)}</td>
+                        <td class="py-3 px-4 text-center font-bold whitespace-nowrap ${isIN ? 'text-emerald-600' : 'text-rose-600'}">
+                            ${isIN ? '+' : '-'}${t.quantity}
+                        </td>
+                        <td class="py-3 px-4 text-center font-medium text-slate-500 bg-slate-50/50 whitespace-nowrap">${t.stockBefore !== undefined ? t.stockBefore : '-'}</td>
+                        <td class="py-3 px-4 text-center font-bold text-indigo-700 bg-indigo-50/30 whitespace-nowrap">${t.stockAfter !== undefined ? t.stockAfter : '-'}</td>
+                        <td class="py-3 px-4 text-xs">
+                            <div class="font-medium text-slate-700">${escapeHtml(t.operator || '-')}</div>
+                            <div class="text-slate-400 truncate max-w-[180px]">${escapeHtml(t.note || '-')}</div>
+                        </td>
+                        <td class="py-3 px-4 text-center whitespace-nowrap">
+                            <button onclick="deleteTransaction('${t.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="ลบ">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderSummaryTable() {
+            const tbody = document.getElementById('summaryTableBody');
+            const emptyState = document.getElementById('summaryEmptyState');
+
+            const currentFolder = folders.find(f => f.id === activeFolderId);
+            if (!currentFolder) return;
+
+            const filterSize = document.getElementById('filterSize').value;
+            const search = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+
+            const sizesToDisplay = filterSize ? [filterSize] : ALL_SIZES;
+
+            const summaryList = sizesToDisplay.map(size => {
+                const totalStock = getStockRemainingForSize(size);
+                return {
+                    name: currentFolder.name,
+                    category: currentFolder.category,
+                    sku: currentFolder.sku,
+                    size,
+                    totalStock
+                };
+            }).filter(item => {
+                if (search) {
+                    return item.name.toLowerCase().includes(search) || 
+                           item.category.toLowerCase().includes(search) ||
+                           (item.sku && item.sku.toLowerCase().includes(search));
+                }
+                return true;
+            });
+
+            if (summaryList.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            tbody.innerHTML = summaryList.map(item => `
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.name)}</td>
+                    <td class="py-3 px-4 text-slate-600">${escapeHtml(item.category)}</td>
+                    <td class="py-3 px-4 text-slate-500 text-xs">${escapeHtml(item.sku || '-')}</td>
+                    <td class="py-3 px-4 text-center font-bold text-indigo-600">${item.size}</td>
+                    <td class="py-3 px-4 text-center font-bold ${item.totalStock > 0 ? 'text-slate-800' : 'text-slate-400'}">${item.totalStock.toLocaleString()} ชิ้น</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="openTransactionForSize('${item.size}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all">
+                            <i class="fa-solid fa-plus mr-1"></i> ทำรายการ
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openTransactionForSize(size) {
+            openTransactionModal('IN');
+            document.getElementById('itemSize').value = size;
+            updateStockAvailabilityIndicator();
+        }
+
+        function exportCombinedExcel() {
+            const currentFolder = folders.find(f => f.id === activeFolderId);
+            if (!currentFolder) return;
+
+            const wb = XLSX.utils.book_new();
+
+            const summaryData = ALL_SIZES.map((size, index) => ({
+                'ลำดับ': index + 1,
+                'ชื่องาน (โฟลเดอร์)': currentFolder.name,
+                'ประเภทชุด': currentFolder.category,
+                'คุณสมบัติชุด': currentFolder.sku || '-',
+                'ไซส์': size,
+                'ยอดคงเหลือรวม (ชิ้น)': getStockRemainingForSize(size)
+            }));
+
+            const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, wsSummary, 'สต็อกคงเหลือปัจจุบัน');
+
+            const logsData = (currentFolder.transactions || []).map((t, index) => ({
+                'ลำดับ': index + 1,
+                'วันที่-เวลา': t.timestamp,
+                'ประเภทรายการ': t.type === 'IN' ? 'รับเข้า (+)' : 'เบิกออก (-)',
+                'ชื่องาน': t.name,
+                'ประเภทชุด': t.category,
+                'คุณสมบัติชุด': t.sku || '-',
+                'ไซส์': t.size,
+                'จำนวน (ชิ้น)': t.quantity,
+                'ยอดก่อนทำรายการ': t.stockBefore !== undefined ? t.stockBefore : '-',
+                'ยอดคงเหลือหลังทำรายการ': t.stockAfter !== undefined ? t.stockAfter : '-',
+                'ผู้ทำรายการ / ผู้เบิก': t.operator || '-',
+                'หมายเหตุ': t.note || '-'
+            }));
+
+            const wsLogs = XLSX.utils.json_to_sheet(logsData);
+            XLSX.utils.book_append_sheet(wb, wsLogs, 'ประวัติการเข้า-ออก');
+
+            const fileName = `รายงานสต็อก_${currentFolder.name.replace(/[^a-zA-Z0-9ก-๙]/g, '_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast('ส่งออกไฟล์ Excel เรียบร้อยแล้ว');
+        }
+    </script>
+</body>
+</html>
